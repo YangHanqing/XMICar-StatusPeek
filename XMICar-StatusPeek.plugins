@@ -1,6 +1,6 @@
 #!name=XMICar-StatusPeek
 #!desc=监听订单状态码，自动推送下线、运出等状态通知 🚗
-#!author=ChatGPT
+#!author=hqyang
 #!version=1.0.0
 #!update=2025-08-06T09:00+08:00
 
@@ -12,14 +12,20 @@ max-size=2048, timeout=8, script-path=inline
 
 #!script
 (() => {
-  const log = (...args) => console.log("[XMICar]", ...args);
+  console.warn("⚠️ [XMICar] 插件脚本开始执行");
 
-  if (!$response?.body) { log("无响应体"); return $done(); }
+  if (!$response?.body) {
+    console.warn("⚠️ [XMICar] 无响应体，结束执行");
+    return $done();
+  }
 
   try {
     const obj  = JSON.parse($response.body);
     const info = obj?.data?.orderDetailDto?.statusInfo;
-    if (!info) { log("未找到 statusInfo"); return $done(); }
+    if (!info) {
+      console.warn("⚠️ [XMICar] 没有找到 statusInfo");
+      return $done();
+    }
 
     const code = info.orderStatus;
     const name = info.orderStatusName;
@@ -37,13 +43,14 @@ max-size=2048, timeout=8, script-path=inline
       `${name}\n${desc}`
     );
 
-    log(`推送通知 → ${code} / ${name} / ${desc}`);
+    console.warn(`✅ [XMICar] 推送成功: ${code} / ${name} / ${desc}`);
   } catch (e) {
-    log("解析异常:", e);
+    console.warn("❌ [XMICar] 解析失败:", e);
   }
 
   $done($response);
 })();
+
 
 [Mitm]
 hostname = api.retail.xiaomiev.com
