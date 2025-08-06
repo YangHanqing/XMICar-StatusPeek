@@ -1,64 +1,53 @@
 #!name=XMICar-StatusPeek
-#!desc=监听订单状态码，自动推送下线、运出等状态通知 🚗
+#!desc=监听小米汽车订单接口，推送下线/运出等隐藏状态
 #!author=hqyang
 #!version=1.0.0
-#!update=2025-08-06T09:00+08:00
+#!update=2025-08-07T10:45+08:00
 
 [Script]
-# 调试版 - 使用 http-request 测试
-XMICar-OrderStatus-Req = type=http-request, requires-body=0, \
-pattern=^https:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order.*$, \
-script-path=inline, tag=XMICar请求调试
+# 小米汽车订单状态监听
+http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order(\?.*)? \
+script-path=inline, requires-body=true, max-size=0, tag=XMICar-订单状态
 
 #!script
 (() => {
-  console.log("🔍 [XMICar-Request] 捕获到请求:", $request.url);
-  $notification.post("🔍 请求调试", "捕获到请求", $request.url);
-  $done();
-})();
+  /* 任何日志都会以 warning 等级输出，方便在默认日志等级下查看 */
+  const warn = (...args) => console.warn('[XMICar]', ...args);
 
-# 调试版 - http-response
-XMICar-OrderStatus-Resp = type=http-response, requires-body=1, \
-pattern=^https:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order.*$, \
-max-size=10240, timeout=10, script-path=inline, tag=XMICar响应调试
+  warn('⚠️ 脚本触发');
 
-#!script
-(() => {
-  console.log("🔍 [XMICar-Response] 捕获到响应");
-  
-  // 立即发送调试通知
-  $notification.post("🔍 响应调试", "捕获到响应", "开始处理响应数据");
-  
   if (!$response?.body) {
-    console.log("❌ [XMICar-Response] 无响应体");
-    $notification.post("❌ 调试", "无响应体", "检查接口是否返回数据");
+    warn('⚠️ 无响应体，结束');
     return $done();
   }
 
-  console.log("📊 [XMICar-Response] 响应体:", $response.body.substring(0, 500));
-  
+  let info;
   try {
     const obj = JSON.parse($response.body);
-    const info = obj?.data?.orderDetailDto?.statusInfo;
-    
-    if (info) {
-      const code = info.orderStatus;
-      const name = info.orderStatusName;
-      
-      $notification.post(
-        "🚗 小米汽车状态",
-        `状态码: ${code}`,
-        `${name}`
-      );
-    } else {
-      $notification.post("⚠️ 调试", "找不到状态信息", "检查数据结构");
-    }
+    info = obj?.data?.orderDetailDto?.statusInfo;
   } catch (e) {
-    $notification.post("❌ 调试", "解析失败", e.message);
+    warn('❌ JSON 解析失败:', e);
   }
 
-  $done($response);
+  if (!info) {
+    warn('⚠️ 未找到 statusInfo');
+    return $done($response);
+  }
+
+  const code = info.orderStatus;
+  const name = info.orderStatusName;
+  const map  = {
+    2520: '车辆尚未下线',
+    2605: '车辆已下线',
+    3000: '车辆已运出'
+  };
+  const desc = map[code] || '状态未知，留意变动';
+
+  $notification.post('🚗 小米汽车订单状态', `状态码: ${code}`, `${name}\n${desc}`);
+  warn(`✅ 已通知: ${code} / ${name} / ${desc}`);
+
+  $done($response);          // 原样放行，完全不影响 App
 })();
 
-[Mitm]
+[mitm]
 hostname = api.retail.xiaomiev.com
