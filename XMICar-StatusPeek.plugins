@@ -1,18 +1,16 @@
 #!name=XMICar-StatusPeek
 #!desc=监听订单状态码，自动推送下线、运出等状态通知 🚗
-#!author=hqyang
+#!author=ChatGPT
+#!version=1.0.0
+#!update=2025-08-06T09:00+08:00
 
-########################################
-#               Script                 #
-########################################
 [Script]
-# 拦截小米汽车订单接口（POST/GET 均可），解析状态
+# 小米汽车订单状态监听器
 XMICar-OrderStatus = type=http-response, requires-body=1, \
 pattern=^https:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order(\?.*)?$, \
 max-size=2048, timeout=8, script-path=inline
 
 #!script
-// XMICar Order Status ⇢ Loon http-response
 (() => {
   const log = (...args) => console.log("[XMICar]", ...args);
 
@@ -26,7 +24,6 @@ max-size=2048, timeout=8, script-path=inline
     const code = info.orderStatus;
     const name = info.orderStatusName;
 
-    // 状态码翻译字典
     const map = {
       2520: "车辆尚未下线",
       2605: "车辆已下线",
@@ -34,7 +31,6 @@ max-size=2048, timeout=8, script-path=inline
     };
     const desc = map[code] || "状态未知，留意变动";
 
-    // 发送系统通知
     $notification.post(
       "🚗 小米汽车订单状态",
       `状态码: ${code}`,
@@ -46,12 +42,8 @@ max-size=2048, timeout=8, script-path=inline
     log("解析异常:", e);
   }
 
-  // 不修改响应，直接放行
   $done($response);
 })();
 
-########################################
-#                MITM                  #
-########################################
 [Mitm]
 hostname = api.retail.xiaomiev.com
