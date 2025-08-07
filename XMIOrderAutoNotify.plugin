@@ -12,7 +12,7 @@ onlyNotifyOnChange = switch,false,tag=仅变化时通知,desc=仅在状态变化
 http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米订单状态通知
 
 # 重放脚本：需要参数控制行为
-cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放, enable={enableAutoReplay}, argument=[{replayInterval},{onlyNotifyOnChange}]
+cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放, enabled={enableAutoReplay}, argument=replayInterval={replayInterval}&onlyNotifyOnChange={onlyNotifyOnChange}
 
 [MITM]
 hostname=api.retail.xiaomiev.com
