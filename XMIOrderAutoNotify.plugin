@@ -1,27 +1,16 @@
 #!name=小米汽车订单状态通知
 #!desc=解析小米汽车 App 订单 POST 请求并发送系统通知，支持定时重放和变化检测
-#!system=iOS,iPadOS,macOS
-#!loon_version=3.2.1(372)
+#!author=hqyang
 
 [Argument]
 enableAutoReplay = switch,true,tag=启用定时重放,desc=是否启用定时重放功能
-replayInterval = select,"1","10","30","60","180","360","720",tag=重放间隔(分钟),desc=定时重放的时间间隔
-onlyNotifyOnChange = switch,true,tag=仅变化时通知,desc=定时重放时仅在状态变化时发送通知
+replayInterval = select,"1","5","10","30","60","120","180",tag=重放间隔(分钟),desc=定时重放的时间间隔
+onlyNotifyOnChange = switch,false,tag=仅变化时通知,desc=定时重放时仅在状态变化时发送通知
 
 [Script]
 http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米订单状态通知, argument=[{enableAutoReplay},{replayInterval},{onlyNotifyOnChange}]
 
-# 1分钟间隔的cron任务
-cron */1 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放1分钟, enable={enableAutoReplay}, argument=[{onlyNotifyOnChange},{replayInterval}]
-
-# 10分钟间隔的cron任务
-cron */10 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放10分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
-
-# 30分钟间隔的cron任务
-cron */30 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放30分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
-
-# 60分钟间隔的cron任务
-cron 0 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放60分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
+cron "*/{replayInterval} * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放, enable={enableAutoReplay}, argument=[{onlyNotifyOnChange},{replayInterval}]
 
 [MITM]
 hostname=api.retail.xiaomiev.com
