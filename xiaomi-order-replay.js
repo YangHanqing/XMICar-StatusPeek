@@ -1,6 +1,5 @@
 // 小米汽车订单状态定时检查脚本（xiaomi-order-replay.js）
 
-// ✅ 本地存储键
 const STORAGE_KEYS = {
     LAST_STATUS: "xiaomi_order_last_status",
     REQUEST_HEADERS: "xiaomi_order_request_headers",
@@ -9,13 +8,13 @@ const STORAGE_KEYS = {
     REQUEST_METHOD: "xiaomi_order_request_method"
 };
 
-// ✅ 加载请求信息
+// 读取请求信息
 const savedHeaders = $persistentStore.read(STORAGE_KEYS.REQUEST_HEADERS);
 const savedBody = $persistentStore.read(STORAGE_KEYS.REQUEST_BODY);
 const savedUrl = $persistentStore.read(STORAGE_KEYS.REQUEST_URL);
 const savedMethod = $persistentStore.read(STORAGE_KEYS.REQUEST_METHOD);
 
-// 🚫 请求信息缺失，提示用户打开App
+// 如果请求信息缺失，提醒用户
 if (!savedHeaders || !savedUrl) {
     console.log("❌ 未找到请求信息，请先手动打开App查询一次订单");
     $done();
@@ -32,7 +31,6 @@ try {
         timeout: 15000
     };
 
-    // 📡 发起请求
     $httpClient.post(requestParams, (error, response, data) => {
         if (error) {
             console.log("❌ 请求失败:", error);
@@ -53,8 +51,9 @@ try {
             const statusCode = statusInfo.orderStatus;
             const statusName = statusInfo.orderStatusName || "未知状态";
             const statusDesc = getStatusDescription(statusCode);
+            const now = new Date().toLocaleString('zh-CN');
 
-            // 保存最新状态
+            // 保存当前状态
             const currentStatus = {
                 statusCode,
                 statusName,
@@ -65,19 +64,19 @@ try {
             };
             $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
 
-            // 🎉 特殊处理：已下线时加点仪式感
-            const isOffline = statusCode === 2605;
-            const subtitle = `状态代码：${statusCode}`;
-            const message = isOffline
-                ? `🎉🎉🎉喜大普奔，下线了🎉🎉🎉\n时间：${new Date().toLocaleString('zh-CN')}`
-                : `当前状态：${statusDesc}\n时间：${new Date().toLocaleString('zh-CN')}`;
-
-            // 🔔 推送通知
-            $notification.post(
-                "🚗 订单状态定时查询",
-                subtitle,
-                message
-            );
+            // 🎉 特殊处理：车辆下线
+            if (statusCode === 2605) {
+                const title = "🎉🎉🎉 你的小米汽车已下线！🎉🎉🎉";
+                const message = `${statusDesc}（${statusCode}）\n⏰ ${now}`;
+                $notification.post(title, "", message);
+                console.log("✅ 已发送车辆下线通知");
+            } else {
+                // 其他状态
+                const title = "🚗 订单状态定时查询";
+                const message = `${statusDesc}（${statusCode}）\n⏰ ${now}`;
+                $notification.post(title, "", message);
+                console.log("✅ 状态更新通知已发送");
+            }
 
         } catch (e) {
             console.log("❌ 响应解析失败:", e.message);
@@ -91,11 +90,11 @@ try {
     $done();
 }
 
-// ✅ 状态码对应描述
+// 状态码解释
 function getStatusDescription(statusCode) {
     switch (statusCode) {
         case 2520: return "🏭 车辆生产中";
-        case 2605: return "✅ 车辆已下线";
+        case 2605: return "🎉 车辆已下线";
         case 3000: return "🚚 车辆运输中";
         default:   return "❓ 状态未知";
     }
