@@ -1,18 +1,21 @@
-// 存储键名
+// 小米汽车订单状态定时检查脚本（xiaomi-order-replay.js）
+
+// ✅ 本地存储键
 const STORAGE_KEYS = {
     LAST_STATUS: "xiaomi_order_last_status",
-    REQUEST_HEADERS: "xiaomi_order_request_headers", 
+    REQUEST_HEADERS: "xiaomi_order_request_headers",
     REQUEST_BODY: "xiaomi_order_request_body",
     REQUEST_URL: "xiaomi_order_request_url",
     REQUEST_METHOD: "xiaomi_order_request_method"
 };
 
-// 获取保存的请求信息
+// ✅ 加载请求信息
 const savedHeaders = $persistentStore.read(STORAGE_KEYS.REQUEST_HEADERS);
 const savedBody = $persistentStore.read(STORAGE_KEYS.REQUEST_BODY);
 const savedUrl = $persistentStore.read(STORAGE_KEYS.REQUEST_URL);
 const savedMethod = $persistentStore.read(STORAGE_KEYS.REQUEST_METHOD);
 
+// 🚫 请求信息缺失，提示用户打开App
 if (!savedHeaders || !savedUrl) {
     console.log("❌ 未找到请求信息，请先手动打开App查询一次订单");
     $done();
@@ -24,11 +27,12 @@ try {
     const requestParams = {
         url: savedUrl,
         method: savedMethod || "POST",
-        headers: headers,
+        headers,
         body: savedBody || "",
         timeout: 15000
     };
 
+    // 📡 发起请求
     $httpClient.post(requestParams, (error, response, data) => {
         if (error) {
             console.log("❌ 请求失败:", error);
@@ -50,7 +54,7 @@ try {
             const statusName = statusInfo.orderStatusName || "未知状态";
             const statusDesc = getStatusDescription(statusCode);
 
-            // 保存当前状态
+            // 保存最新状态
             const currentStatus = {
                 statusCode,
                 statusName,
@@ -61,11 +65,18 @@ try {
             };
             $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
 
-            // 通知
+            // 🎉 特殊处理：已下线时加点仪式感
+            const isOffline = statusCode === 2605;
+            const subtitle = `状态代码：${statusCode}`;
+            const message = isOffline
+                ? `🎉🎉🎉喜大普奔，下线了🎉🎉🎉\n时间：${new Date().toLocaleString('zh-CN')}`
+                : `当前状态：${statusDesc}\n时间：${new Date().toLocaleString('zh-CN')}`;
+
+            // 🔔 推送通知
             $notification.post(
-                "🚗 小米汽车订单状态",
-                `${statusName}（${statusCode}）`,
-                `当前状态: ${statusDesc}\n状态代码: ${statusCode}\n时间: ${new Date().toLocaleString('zh-CN')}`
+                "🚗 订单状态定时查询",
+                subtitle,
+                message
             );
 
         } catch (e) {
@@ -80,7 +91,7 @@ try {
     $done();
 }
 
-// 状态码描述
+// ✅ 状态码对应描述
 function getStatusDescription(statusCode) {
     switch (statusCode) {
         case 2520: return "🏭 车辆生产中";
