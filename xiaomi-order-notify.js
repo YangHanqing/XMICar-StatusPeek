@@ -1,6 +1,3 @@
-// 获取参数
-const enableAutoReplay = $argument.enableAutoReplay === "true";
-const onlyNotifyOnChange = $argument.onlyNotifyOnChange === "true";
 
 // 存储键名
 const STORAGE_KEYS = {
@@ -15,7 +12,7 @@ const STORAGE_KEYS = {
 // 防重复通知间隔（30秒）
 const NOTIFY_COOLDOWN = 30 * 1000;
 
-console.log(`📱 处理App真实请求 (定时重放: ${enableAutoReplay ? "已启用" : "已关闭"})`);
+console.log("📱 捕获到 POST 请求，开始处理");
 
 try {
     const currentTime = Date.now();
@@ -59,41 +56,25 @@ try {
             hasStatusChanged = true;
         }
         
+        console.log(`🔧 状态变化检查: hasStatusChanged=${hasStatusChanged}, lastStatus=${lastStatus?.statusCode}, currentStatus=${statusCode}`);
+        
         // 保存当前状态
         const currentStatus = {
             statusCode: statusCode,
             statusName: statusName,
             statusDesc: statusDesc,
             updateTime: currentTime,
-            saveTime: new Date().toISOString()
+            saveTime: new Date().toISOString(),
+            source: "app_request"
         };
         $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
         console.warn("⚠️ 订单状态信息保存成功");
         
-        // 检查是否需要发送实时通知
+        // 检查是否需要发送实时通知（App触发的通知总是发送，不受配置影响）
         const lastNotifyTime = parseInt($persistentStore.read(STORAGE_KEYS.LAST_NOTIFY_TIME) || "0");
         const inCooldown = (currentTime - lastNotifyTime) < NOTIFY_COOLDOWN;
         
-        let shouldNotify = false;
-        let notifyReason = "";
-        
-        if (inCooldown) {
-            console.log("⏰ 实时通知冷却期内，跳过通知");
-        } else {
-            if (onlyNotifyOnChange) {
-                if (hasStatusChanged) {
-                    shouldNotify = true;
-                    notifyReason = lastStatus ? "状态发生变化" : "首次获取状态";
-                } else {
-                    console.log("🔍 状态无变化，跳过实时通知");
-                }
-            } else {
-                shouldNotify = true;
-                notifyReason = "实时状态更新";
-            }
-        }
-        
-        if (shouldNotify) {
+        if (!inCooldown) {
             // 构建通知内容
             let notificationTitle = "📱 小米汽车订单状态";
             let notificationSubtitle = statusName;
@@ -103,7 +84,8 @@ try {
                 notificationBody += `\n📈 变化: ${lastStatus.statusCode} → ${statusCode}`;
             }
             
-            notificationBody += `\n⏰ 检查时间: ${new Date().toLocaleTimeString()}`;
+            notificationBody += `\n⏰ 更新时间: ${new Date().toLocaleTimeString()}`;
+            notificationBody += `\n📱 来源: App请求`;
             
             // 发送通知
             $notification.post(notificationTitle, notificationSubtitle, notificationBody);
@@ -111,14 +93,15 @@ try {
             // 更新通知时间
             $persistentStore.write(currentTime.toString(), STORAGE_KEYS.LAST_NOTIFY_TIME);
             
-            console.log(`✅ 实时通知已发送: ${notifyReason}`);
+            console.log("✅ App触发的实时通知已发送");
             console.warn("⚠️ 通知发送记录已保存");
+        } else {
+            console.log("⏰ 实时通知冷却期内，跳过通知");
         }
         
         // 日志输出
         console.log("📊 当前状态: " + statusCode + " - " + statusName);
         console.log("📝 状态说明: " + statusDesc);
-        console.log(`🔄 定时重放功能: ${enableAutoReplay ? "已启用" : "已关闭"}`);
         
     } else {
         console.log("⚠️ 未获取到订单状态信息");
