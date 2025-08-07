@@ -1,6 +1,6 @@
 // 获取参数
-const replayInterval = parseInt($argument[0]) || 60;
-const onlyNotifyOnChange = $argument[1] === "true";
+let replayInterval = $argument.replayInterval || "10";
+let onlyNotifyOnChange = $argument.onlyNotifyOnChange === "true";
 
 console.log(`🔧 重放脚本参数: replayInterval=${replayInterval}, onlyNotifyOnChange=${onlyNotifyOnChange}`);
 
