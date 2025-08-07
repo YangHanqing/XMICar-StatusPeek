@@ -1,6 +1,6 @@
-// 获取配置参数
-const replayInterval = parseInt($argument[0]) || 60;
-const notifyMode = $argument[1] || "仅状态发生变化时通知";
+// 获取配置参数 - 使用对象属性方式
+const replayInterval = parseInt($argument.replayInterval) || 60;
+const notifyMode = $argument.notifyMode || "仅状态发生变化时通知";
 
 console.log(`🔧 定时检查配置: 间隔${replayInterval}分钟, 通知方式=${notifyMode}`);
 
