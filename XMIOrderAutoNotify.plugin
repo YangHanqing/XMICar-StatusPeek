@@ -11,7 +11,17 @@ onlyNotifyOnChange = switch,true,tag=仅变化时通知,desc=定时重放时仅�
 [Script]
 http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米订单状态通知, argument=[{enableAutoReplay},{replayInterval},{onlyNotifyOnChange}]
 
-cron {replayInterval} * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放, enable={enableAutoReplay}, argument=[{onlyNotifyOnChange}]
+# 1分钟间隔的cron任务
+cron */1 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放1分钟, enable={enableAutoReplay}, argument=[{onlyNotifyOnChange},{replayInterval}]
+
+# 10分钟间隔的cron任务
+cron */10 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放10分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
+
+# 30分钟间隔的cron任务
+cron */30 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放30分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
+
+# 60分钟间隔的cron任务
+cron 0 * * * * script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放60分钟, enable=false, argument=[{onlyNotifyOnChange},{replayInterval}]
 
 [MITM]
 hostname=api.retail.xiaomiev.com
