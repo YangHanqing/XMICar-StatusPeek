@@ -5,7 +5,7 @@
 #!update=2025-08-07T17:45+08:00
 
 [Argument]
-enableAutoReplay = switch,false,tag=定时获取最新状态,desc=是否开启定时自动检查订单状态功能
+enableAutoReplay = switch,false,tag=每隔30分钟自动获取最新状态,desc=是否开启定时自动检查订单状态功能
 
 [Script]
 http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/car-order-monitor.js, requires-body=true, tag=小米订单状态通知
