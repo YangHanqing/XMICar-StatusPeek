@@ -1,6 +1,8 @@
 // 获取参数
-const onlyNotifyOnChange = $argument.onlyNotifyOnChange === "true";
-const replayInterval = $argument.replayInterval || "60";
+const replayInterval = parseInt($argument[0]) || 60;
+const onlyNotifyOnChange = $argument[1] === "true";
+
+console.log(`🔧 重放脚本参数: replayInterval=${replayInterval}, onlyNotifyOnChange=${onlyNotifyOnChange}`);
 
 // 存储键名
 const STORAGE_KEYS = {
