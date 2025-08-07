@@ -8,59 +8,56 @@ const STORAGE_KEYS = {
     LAST_STATUS: "xiaomi_order_last_status",
     REQUEST_HEADERS: "xiaomi_order_request_headers", 
     REQUEST_BODY: "xiaomi_order_request_body",
-    LAST_REPLAY_TIME: "xiaomi_order_last_replay_time"
+    REQUEST_URL: "xiaomi_order_request_url",
+    REQUEST_METHOD: "xiaomi_order_request_method"
 };
 
-// 缩短防重复通知间隔为5秒，避免与1分钟间隔冲突
-const NOTIFY_COOLDOWN = 5 * 1000;
+// 缩短防重复通知间隔
+const NOTIFY_COOLDOWN = 3 * 1000; // 3秒
 
-console.log(`🔄 开始执行定时重放任务 (间隔: ${replayInterval}分钟, 仅变化通知: ${onlyNotifyOnChange})`);
+console.log(`🔄 执行${replayInterval}分钟定时重放任务 (仅变化通知: ${onlyNotifyOnChange})`);
 
-// 检查重放间隔控制
-const currentTime = Date.now();
-const lastReplayTime = parseInt($persistentStore.read(STORAGE_KEYS.LAST_REPLAY_TIME) || "0");
-const replayIntervalMs = parseInt(replayInterval) * 60 * 1000;
-
-// 如果距离上次重放时间不足设定间隔，跳过执行
-if (currentTime - lastReplayTime < replayIntervalMs) {
-    console.log(`⏭️ 距离上次重放时间不足${replayInterval}分钟，跳过执行`);
-    $done();
-    return;
-}
-
-// 读取保存的请求信息
+// 读取保存的完整请求信息
 const savedHeaders = $persistentStore.read(STORAGE_KEYS.REQUEST_HEADERS);
 const savedBody = $persistentStore.read(STORAGE_KEYS.REQUEST_BODY);
+const savedUrl = $persistentStore.read(STORAGE_KEYS.REQUEST_URL);
+const savedMethod = $persistentStore.read(STORAGE_KEYS.REQUEST_METHOD);
 
-if (!savedHeaders) {
-    console.log("❌ 未找到保存的请求头信息，请先通过App正常访问一次");
+if (!savedHeaders || !savedUrl) {
+    console.log("❌ 未找到完整的保存请求信息，请先通过App正常访问一次");
+    console.warn("⚠️ 重放失败：缺少必要的请求信息");
     $done();
     return;
 }
 
 try {
     const headers = JSON.parse(savedHeaders);
+    const url = savedUrl || "https://api.retail.xiaomiev.com/mtop/carlife/product/order";
+    const method = savedMethod || "POST";
     
-    // 构建请求参数
+    // 构建完整请求参数
     const requestParams = {
-        url: "https://api.retail.xiaomiev.com/mtop/carlife/product/order",
-        method: "POST",
+        url: url,
+        method: method,
         headers: headers,
         body: savedBody || "",
         timeout: 15000
     };
     
-    console.log("📡 发起重放请求...");
+    console.log(`📡 使用保存的完整信息发起重放请求: ${method} ${url}`);
+    console.warn("⚠️ 重放请求构建完成，开始发送");
     
     // 发起请求
     $httpClient.post(requestParams, function(error, response, data) {
         if (error) {
             console.log("❌ 重放请求失败:", error);
+            console.warn("⚠️ 重放请求网络错误");
             $done();
             return;
         }
         
-        console.log("📨 重放请求成功，状态码:", response.status);
+        console.log(`📨 重放请求成功，HTTP状态: ${response.status}`);
+        console.warn("⚠️ 重放请求响应接收成功");
         
         try {
             // 解析响应
@@ -68,17 +65,24 @@ try {
             let statusInfo = json?.data?.orderDetailDto?.statusInfo;
             
             if (statusInfo) {
+                const currentTime = Date.now();
                 let statusCode = statusInfo.orderStatus;
                 let statusName = statusInfo.orderStatusName || "未知状态";
                 let statusDesc = getStatusDescription(statusCode);
                 
+                console.log(`📊 重放获取状态: ${statusCode} - ${statusName}`);
+                
                 // 获取上次状态
                 const lastStatusData = $persistentStore.read(STORAGE_KEYS.LAST_STATUS);
                 let lastStatus = null;
+                let hasStatusChanged = false;
+                
                 try {
                     lastStatus = lastStatusData ? JSON.parse(lastStatusData) : null;
+                    hasStatusChanged = !lastStatus || (lastStatus.statusCode !== statusCode);
                 } catch (e) {
-                    console.log("解析上次状态数据失败:", e);
+                    console.log("📝 解析上次状态失败，视为首次获取");
+                    hasStatusChanged = true;
                 }
                 
                 // 保存当前状态
@@ -86,30 +90,27 @@ try {
                     statusCode: statusCode,
                     statusName: statusName,
                     statusDesc: statusDesc,
-                    updateTime: currentTime
+                    updateTime: currentTime,
+                    saveTime: new Date().toISOString(),
+                    source: "replay"
                 };
                 $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
+                console.warn("⚠️ 重放状态信息保存成功");
                 
-                // 更新重放时间
-                $persistentStore.write(currentTime.toString(), STORAGE_KEYS.LAST_REPLAY_TIME);
-                
-                // 判断是否需要通知
+                // 决定是否发送通知
                 let shouldNotify = false;
                 let notifyReason = "";
                 
                 if (onlyNotifyOnChange) {
-                    if (!lastStatus) {
+                    if (hasStatusChanged) {
                         shouldNotify = true;
-                        notifyReason = "首次重放获取状态";
-                    } else if (lastStatus.statusCode !== statusCode) {
-                        shouldNotify = true;
-                        notifyReason = "重放检测到状态变化";
+                        notifyReason = lastStatus ? "状态发生变化" : "首次获取状态";
                     } else {
-                        console.log("🔍 重放检测：状态无变化，跳过通知");
+                        console.log("🔍 状态无变化，跳过通知");
                     }
                 } else {
                     shouldNotify = true;
-                    notifyReason = "定时重放通知";
+                    notifyReason = "定时检查通知";
                 }
                 
                 // 检查通知冷却期
@@ -118,13 +119,15 @@ try {
                 
                 if (shouldNotify && !inCooldown) {
                     // 构建通知内容
-                    let notificationTitle = `🔄 订单状态检查(${replayInterval}分钟)`;
+                    let notificationTitle = `🔄 订单状态检查 (${replayInterval}分钟)`;
                     let notificationSubtitle = statusName;
                     let notificationBody = `状态码: ${statusCode}\n${statusDesc}`;
                     
-                    if (lastStatus && lastStatus.statusCode !== statusCode) {
+                    if (hasStatusChanged && lastStatus) {
                         notificationBody += `\n📈 变化: ${lastStatus.statusCode} → ${statusCode}`;
                     }
+                    
+                    notificationBody += `\n⏰ 检查时间: ${new Date().toLocaleTimeString()}`;
                     
                     // 发送通知
                     $notification.post(notificationTitle, notificationSubtitle, notificationBody);
@@ -132,33 +135,34 @@ try {
                     // 更新通知时间
                     $persistentStore.write(currentTime.toString(), STORAGE_KEYS.LAST_NOTIFY_TIME);
                     
-                    console.log(`✅ 重放通知已发送 (${notifyReason})`);
+                    console.log(`✅ 重放通知已发送: ${notifyReason}`);
+                    console.warn("⚠️ 重放通知发送记录已保存");
                 } else if (inCooldown) {
-                    console.log("⏰ 重放通知冷却期内，跳过通知");
+                    console.log(`⏰ 通知冷却期内(${NOTIFY_COOLDOWN/1000}秒)，跳过通知`);
                 } else {
-                    console.log("📋 重放完成，无需通知");
+                    console.log("📋 重放完成，无需发送通知");
                 }
                 
-                // 日志输出
-                console.log("🔄 重放结果 - 状态码: " + statusCode);
-                console.log("📌 重放结果 - 状态名: " + statusName);
-                console.log("📝 重放结果 - 状态说明: " + statusDesc);
-                
             } else {
-                console.log("⚠️ 重放请求未获取到订单状态信息");
-                console.log("📄 响应数据:", data.substring(0, 200) + "...");
+                console.log("⚠️ 重放响应中未找到订单状态信息");
+                console.warn("⚠️ 重放响应解析失败：缺少statusInfo");
+                if (data && data.length > 0) {
+                    console.log("📄 响应预览:", data.substring(0, 200));
+                }
             }
             
         } catch (e) {
-            console.log("❌ 重放响应解析错误:", e);
-            console.log("📄 原始响应:", data.substring(0, 200) + "...");
+            console.log("❌ 解析重放响应JSON失败:", e.message);
+            console.warn("⚠️ 重放响应JSON解析错误");
+            console.log("📄 原始响应:", data ? data.substring(0, 200) : "空响应");
         }
         
         $done();
     });
     
 } catch (e) {
-    console.log("❌ 重放请求构建失败:", e);
+    console.log("❌ 构建重放请求失败:", e.message);
+    console.warn("⚠️ 重放请求构建过程发生错误");
     $done();
 }
 
