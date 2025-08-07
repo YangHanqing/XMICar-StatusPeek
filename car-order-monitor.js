@@ -83,15 +83,13 @@ try {
         if (!inCooldown) {
             // 构建通知
             let notificationTitle = "🚗 小米汽车订单状态更新";
-            let notificationSubtitle = `${statusName}（${statusCode}）`;
-            let notificationBody = `当前状态: ${statusDesc}（代码: ${statusCode}）`;
+            let notificationSubtitle = `${statusDesc}（${statusCode}）`;
 
+            let notificationBody = "";
             if (hasStatusChanged && lastStatus) {
-                notificationBody += `\n📈 状态变化: ${getStatusDescription(lastStatus.statusCode)} → ${statusDesc}`;
+                notificationBody += `📈 状态变化: ${getStatusDescription(lastStatus.statusCode)} → ${statusDesc}\n`;
             }
-
-            notificationBody += `\n⏰ 查询时间: ${new Date().toLocaleString('zh-CN')}`;
-            notificationBody += `\n📱 来源: 手动查询`;
+            notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')} ｜ 📱手动查询`;
 
             // 发送通知
             $notification.post(notificationTitle, notificationSubtitle, notificationBody);
