@@ -1,18 +1,32 @@
 // 获取参数
 const onlyNotifyOnChange = $argument.onlyNotifyOnChange === "true";
+const replayInterval = $argument.replayInterval || "60";
 
 // 存储键名
 const STORAGE_KEYS = {
     LAST_NOTIFY_TIME: "xiaomi_order_last_notify_time",
     LAST_STATUS: "xiaomi_order_last_status",
     REQUEST_HEADERS: "xiaomi_order_request_headers", 
-    REQUEST_BODY: "xiaomi_order_request_body"
+    REQUEST_BODY: "xiaomi_order_request_body",
+    LAST_REPLAY_TIME: "xiaomi_order_last_replay_time"
 };
 
-// 防重复通知间隔（10秒）
-const NOTIFY_COOLDOWN = 10 * 1000;
+// 缩短防重复通知间隔为5秒，避免与1分钟间隔冲突
+const NOTIFY_COOLDOWN = 5 * 1000;
 
-console.log("🔄 开始执行定时重放任务");
+console.log(`🔄 开始执行定时重放任务 (间隔: ${replayInterval}分钟, 仅变化通知: ${onlyNotifyOnChange})`);
+
+// 检查重放间隔控制
+const currentTime = Date.now();
+const lastReplayTime = parseInt($persistentStore.read(STORAGE_KEYS.LAST_REPLAY_TIME) || "0");
+const replayIntervalMs = parseInt(replayInterval) * 60 * 1000;
+
+// 如果距离上次重放时间不足设定间隔，跳过执行
+if (currentTime - lastReplayTime < replayIntervalMs) {
+    console.log(`⏭️ 距离上次重放时间不足${replayInterval}分钟，跳过执行`);
+    $done();
+    return;
+}
 
 // 读取保存的请求信息
 const savedHeaders = $persistentStore.read(STORAGE_KEYS.REQUEST_HEADERS);
@@ -33,8 +47,10 @@ try {
         method: "POST",
         headers: headers,
         body: savedBody || "",
-        timeout: 10000
+        timeout: 15000
     };
+    
+    console.log("📡 发起重放请求...");
     
     // 发起请求
     $httpClient.post(requestParams, function(error, response, data) {
@@ -43,6 +59,8 @@ try {
             $done();
             return;
         }
+        
+        console.log("📨 重放请求成功，状态码:", response.status);
         
         try {
             // 解析响应
@@ -64,7 +82,6 @@ try {
                 }
                 
                 // 保存当前状态
-                const currentTime = Date.now();
                 const currentStatus = {
                     statusCode: statusCode,
                     statusName: statusName,
@@ -72,6 +89,9 @@ try {
                     updateTime: currentTime
                 };
                 $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
+                
+                // 更新重放时间
+                $persistentStore.write(currentTime.toString(), STORAGE_KEYS.LAST_REPLAY_TIME);
                 
                 // 判断是否需要通知
                 let shouldNotify = false;
@@ -98,7 +118,7 @@ try {
                 
                 if (shouldNotify && !inCooldown) {
                     // 构建通知内容
-                    let notificationTitle = "🔄 订单状态定时检查";
+                    let notificationTitle = `🔄 订单状态检查(${replayInterval}分钟)`;
                     let notificationSubtitle = statusName;
                     let notificationBody = `状态码: ${statusCode}\n${statusDesc}`;
                     
@@ -115,6 +135,8 @@ try {
                     console.log(`✅ 重放通知已发送 (${notifyReason})`);
                 } else if (inCooldown) {
                     console.log("⏰ 重放通知冷却期内，跳过通知");
+                } else {
+                    console.log("📋 重放完成，无需通知");
                 }
                 
                 // 日志输出
@@ -124,10 +146,12 @@ try {
                 
             } else {
                 console.log("⚠️ 重放请求未获取到订单状态信息");
+                console.log("📄 响应数据:", data.substring(0, 200) + "...");
             }
             
         } catch (e) {
             console.log("❌ 重放响应解析错误:", e);
+            console.log("📄 原始响应:", data.substring(0, 200) + "...");
         }
         
         $done();
