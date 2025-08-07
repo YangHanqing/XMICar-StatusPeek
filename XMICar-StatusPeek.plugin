@@ -2,7 +2,7 @@
 #!desc=监听小米汽车订单接口，推送下线/运出等隐藏状态
 #!author=hqyang
 #!version=1.1.0
-#!update=2025-08-07T10:45+08:00
+#!update=2025-08-07T17:45+08:00
 
 [Argument]
 enableAutoReplay = switch,false,tag=定时获取最新状态,desc=是否开启定时自动检查订单状态功能
