@@ -82,14 +82,14 @@ try {
 
         if (!inCooldown) {
             // 构建通知
-            let notificationTitle = "🚗 小米汽车订单状态更新";
+            let notificationTitle = "🚗 订单状态查询";
             let notificationSubtitle = `${statusDesc}（${statusCode}）`;
 
             let notificationBody = "";
             if (hasStatusChanged && lastStatus) {
                 notificationBody += `📈 状态变化: ${getStatusDescription(lastStatus.statusCode)} → ${statusDesc}\n`;
             }
-            notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')} ｜ 📱手动查询`;
+            notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
             // 发送通知
             $notification.post(notificationTitle, notificationSubtitle, notificationBody);
@@ -119,9 +119,9 @@ try {
 function getStatusDescription(statusCode) {
     switch (statusCode) {
         case 2520:
-            return "🏭 车辆生产中";
+            return "🔨 车辆生产中";
         case 2605:
-            return "✅ 车辆已下线";
+            return "🎉 车辆已下线";
         case 3000:
             return "🚚 车辆运输中";
         default:
