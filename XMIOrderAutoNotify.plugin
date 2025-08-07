@@ -3,16 +3,16 @@
 #!author=hqyang
 
 [Argument]
-enableAutoReplay = switch,true,tag=定时获取最新状态,desc=定时获取状态是否发生变化
-replayInterval = select,"1","5","10","30","60","120","180",tag=重放间隔(分钟),desc=定时获取的时间间隔
-onlyNotifyOnChange = switch,true,tag=仅变化时通知,desc=仅在状态变化时发送通知
+enableAutoReplay = switch,true,tag=定时获取最新状态,desc=是否开启定时自动检查订单状态功能
+replayInterval = select,"1","5","10","30","60","120","180",tag=检查间隔(分钟),desc=每隔多长时间自动检查一次订单状态
+notifyMode = select,"仅状态发生变化时通知","每次均通知",tag=通知方式,desc=选择何时发送通知到手机
 
 [Script]
-# 主脚本：获取App请求，不需要任何参数
-http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米订单状态通知
+# 拦截脚本：监控App请求
+http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米汽车订单状态监控
 
-# 重放脚本：需要参数控制行为
-cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=订单状态重放, enabled={enableAutoReplay}, argument=replayInterval={replayInterval}&onlyNotifyOnChange={onlyNotifyOnChange}
+# 定时检查脚本
+cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=定时检查订单状态, enable={enableAutoReplay}, argument=[{replayInterval},{notifyMode}]
 
 [MITM]
 hostname=api.retail.xiaomiev.com
