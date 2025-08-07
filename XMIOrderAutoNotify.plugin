@@ -12,7 +12,7 @@ notifyMode = select,"仅状态发生变化时通知","每次均通知",tag=通�
 http-response ^https?:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-notify.js, requires-body=true, tag=小米汽车订单状态监控
 
 # 定时检查脚本
-cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=定时检查订单状态, enable={enableAutoReplay}, argument=[{replayInterval},{notifyMode}]
+cron "*/1 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=定时检查订单状态, enable={enableAutoReplay}, argument=replayInterval={replayInterval}&notifyMode={notifyMode}
 
 [MITM]
 hostname=api.retail.xiaomiev.com
