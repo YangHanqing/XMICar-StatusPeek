@@ -13,6 +13,7 @@
 
 ### 前置条件
 - 安装 iOS Loon App
+- 开启 Loon 的 脚本 功能
 - 开启 Loon 的 MITM 功能
 
 ### 使用步骤
@@ -20,7 +21,10 @@
 - 打开 Loon App
 - 进入「配置」→「插件」
 - 点击右上角「+」添加插件
-- 输入插件地址：`https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/XMICar-StatusPeek.plugin`
+- 输入插件地址
+```
+https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/XMICar-StatusPeek.plugin
+```
 
 ### 测试效果
 
