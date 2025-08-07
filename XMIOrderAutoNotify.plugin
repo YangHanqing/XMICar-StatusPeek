@@ -2,11 +2,11 @@
 #!desc=解析小米汽车 App 订单 POST 请求并发送系统通知，支持定时重放和变化检测
 #!author=hqyang
 
-
 [Argument]
-enableAutoReplay = switch,true,tag=启用定时重放,desc=是否启用定时重放功能
-replayInterval = select,"1","5","10","30","60","120","180",tag=重放间隔(分钟),desc=定时重放的时间间隔
-onlyNotifyOnChange = switch,false,tag=仅变化时通知,desc=仅在状态变化时发送通知（同时影响实时和重放通知）
+enableAutoReplay=type=switch,default=true,tag=启用定时重放,desc=是否启用定时重放功能
+replayInterval=type=select,options=1|5|10|30|60|120|180,default=10,tag=重放间隔(分钟),desc=定时重放的时间间隔
+onlyNotifyOnChange=type=switch,default=false,tag=仅变化时通知,desc=仅在状态变化时发送通知（同时影响实时和重放通知）
+
 
 [Script]
 # 主脚本：处理App真实请求
