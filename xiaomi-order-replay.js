@@ -1,4 +1,3 @@
-// 获取配置参数 - 使用对象属性方式
 const replayInterval = parseInt($argument.replayInterval) || 60;
 const notifyMode = $argument.notifyMode || "仅状态发生变化时通知";
 
