@@ -3,9 +3,9 @@
 #!author=hqyang
 
 [Argument]
-enableAutoReplay = switch,true,tag=启用定时重放,desc=是否启用定时重放功能
-replayInterval = select,"1","5","10","30","60","120","180",tag=重放间隔(分钟),desc=定时重放的时间间隔
-onlyNotifyOnChange = switch,false,tag=仅变化时通知,desc=仅在状态变化时发送通知（同时影响实时和重放通知）
+enableAutoReplay = switch,true,tag=定时获取最新状态,desc=定时获取状态是否发生变化
+replayInterval = select,"1","5","10","30","60","120","180",tag=重放间隔(分钟),desc=定时获取的时间间隔
+onlyNotifyOnChange = switch,true,tag=仅变化时通知,desc=仅在状态变化时发送通知
 
 [Script]
 # 主脚本：获取App请求，不需要任何参数
