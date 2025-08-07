@@ -66,7 +66,7 @@ try {
 
             // 🎉 特殊处理：车辆下线
             if (statusCode === 2605) {
-                const title = "🎉🎉🎉 你的小米汽车已下线！🎉🎉🎉";
+                const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
                 const message = `${statusDesc}（${statusCode}）\n⏰ ${now}`;
                 $notification.post(title, "", message);
                 console.log("✅ 已发送车辆下线通知");
@@ -93,8 +93,8 @@ try {
 // 状态码解释
 function getStatusDescription(statusCode) {
     switch (statusCode) {
-        case 2520: return "🏭 车辆生产中";
-        case 2605: return "🎉 车辆已下线";
+        case 2520: return "🔨 车辆生产中";
+        case 2605: return "✅ 车辆已下线";
         case 3000: return "🚚 车辆运输中";
         default:   return "❓ 状态未知";
     }
