@@ -41,6 +41,10 @@ try {
         try {
             const json = JSON.parse(data);
             const statusInfo = json?.data?.orderDetailDto?.statusInfo;
+            
+            // 获取车架号
+            const vid = json?.data?.orderDetailDto?.buyCarInfo?.vid;
+            console.log(`🔍 [定时检查] VID: ${vid || "未获取到"}`);
 
             if (!statusInfo) {
                 console.log("⚠️ 响应中无订单状态信息");
@@ -50,7 +54,7 @@ try {
 
             const statusCode = statusInfo.orderStatus;
             const statusName = statusInfo.orderStatusName || "未知状态";
-            const statusDesc = getStatusDescription(statusCode);
+            const statusDesc = getStatusDescription(statusCode, vid);
             const now = new Date().toLocaleString('zh-CN');
 
             // 保存当前状态
@@ -58,25 +62,45 @@ try {
                 statusCode,
                 statusName,
                 statusDesc,
+                vid: vid || null,
                 updateTime: Date.now(),
                 saveTime: new Date().toISOString(),
                 source: "scheduled_check"
             };
             $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
 
+            // 判断车辆是否下线（车架号以HXM开头）
+            const isOffline = vid && vid.startsWith("HXM");
+
             // 🎉 特殊处理：车辆下线
-            if (statusCode === 2605) {
+            if (isOffline || statusCode === 2605) {
                 const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
-                const message = `${statusDesc}（${statusCode}）\n⏰ ${now}`;
+                let message = `${statusDesc}（${statusCode}）`;
+                if (vid) {
+                    message += `\n🏷️ 车架号: ${vid}`;
+                }
+                message += `\n⏰ ${now}`;
                 $notification.post(title, "", message);
                 console.log("✅ 已发送车辆下线通知");
             } else {
                 // 其他状态
                 const title = "🚗 订单状态定时查询";
-                const message = `${statusDesc}（${statusCode}）\n⏰ ${now}`;
+                let message = `${statusDesc}（${statusCode}）`;
+                if (vid) {
+                    message += `\n🏷️ 车架号: ${vid}`;
+                }
+                message += `\n⏰ ${now}`;
                 $notification.post(title, "", message);
                 console.log("✅ 状态更新通知已发送");
             }
+
+            // 详细日志
+            console.log("📊 [定时检查详情]");
+            console.log(`     状态码: ${statusCode}`);
+            console.log(`     状态名: ${statusName}`);
+            console.log(`     描 述: ${statusDesc}`);
+            console.log(`     车架号: ${vid || "未获取到"}`);
+            console.log(`     下线判断: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
 
         } catch (e) {
             console.log("❌ 响应解析失败:", e.message);
@@ -90,12 +114,23 @@ try {
     $done();
 }
 
-// 状态码解释
-function getStatusDescription(statusCode) {
+// 状态码解释 - 修改为根据车架号判断下线状态
+function getStatusDescription(statusCode, vid) {
+    // 首先判断车架号是否以HXM开头来确定下线状态
+    const isOffline = vid && vid.startsWith("HXM");
+    
     switch (statusCode) {
-        case 2520: return "🔨 车辆生产中";
-        case 2605: return "✅ 车辆已下线";
-        case 3000: return "🚚 车辆运输中";
-        default:   return "❓ 状态未知";
+        case 2520:
+            return isOffline ? "🎉 车辆已下线" : "🔨 车辆生产中";
+        case 2605:
+            return "🎉 车辆已下线"; // 原本就是下线状态
+        case 3000:
+            return "🚚 车辆运输中";
+        default:
+            // 对于其他状态码，也根据车架号判断
+            if (isOffline) {
+                return "🎉 车辆已下线";
+            }
+            return "❓ 状态未知";
     }
 }
