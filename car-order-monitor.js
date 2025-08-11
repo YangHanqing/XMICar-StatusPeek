@@ -35,11 +35,17 @@ try {
     let body = $response.body;
     let json = JSON.parse(body);
     let statusInfo = json?.data?.orderDetailDto?.statusInfo;
+    
+    // 获取车架号
+    const vid = json?.data?.orderDetailDto?.buyCarInfo?.vid;
+    console.log(`🔍 [车架号] VID: ${vid || "未获取到"}`);
 
     if (statusInfo) {
         const statusCode = statusInfo.orderStatus;
         const statusName = statusInfo.orderStatusName || "未知状态";
-        const statusDesc = getStatusDescription(statusCode);
+        
+        // 根据车架号判断下线状态
+        let statusDesc = getStatusDescription(statusCode, vid);
 
         // 获取上次状态
         const lastStatusRaw = $persistentStore.read(STORAGE_KEYS.LAST_STATUS);
@@ -49,7 +55,8 @@ try {
         if (lastStatusRaw) {
             try {
                 lastStatus = JSON.parse(lastStatusRaw);
-                hasStatusChanged = lastStatus.statusCode !== statusCode;
+                // 比较状态码和车架号是否都发生变化
+                hasStatusChanged = lastStatus.statusCode !== statusCode || lastStatus.vid !== vid;
             } catch {
                 console.warn("⚠️ [状态解析] 上次状态读取失败，可能是首次运行");
                 hasStatusChanged = true;
@@ -61,6 +68,7 @@ try {
 
         console.log("🔍 [状态检查] " +
             `当前: ${statusCode} - ${statusName}，` +
+            `车架号: ${vid || "无"}，` +
             `上次: ${lastStatus?.statusCode || "无记录"}，` +
             `变化: ${hasStatusChanged ? "✅ 是" : "❌ 否"}`);
 
@@ -69,6 +77,7 @@ try {
             statusCode,
             statusName,
             statusDesc,
+            vid: vid || null,
             updateTime: currentTime,
             saveTime: new Date().toISOString(),
             source: "app_request"
@@ -87,8 +96,15 @@ try {
 
             let notificationBody = "";
             if (hasStatusChanged && lastStatus) {
-                notificationBody += `📈 状态变化: ${getStatusDescription(lastStatus.statusCode)} → ${statusDesc}\n`;
+                const lastDesc = getStatusDescription(lastStatus.statusCode, lastStatus.vid);
+                notificationBody += `📈 状态变化: ${lastDesc} → ${statusDesc}\n`;
             }
+            
+            // 如果有车架号，显示车架号信息
+            if (vid) {
+                notificationBody += `🏷️ 车架号: ${vid}\n`;
+            }
+            
             notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
             // 发送通知
@@ -106,6 +122,7 @@ try {
         console.log(`     状态码: ${statusCode}`);
         console.log(`     状态名: ${statusName}`);
         console.log(`     描 述: ${statusDesc}`);
+        console.log(`     车架号: ${vid || "未获取到"}`);
 
     } else {
         console.warn("⚠️ [状态缺失] 响应中未找到订单状态信息");
@@ -115,16 +132,23 @@ try {
     console.warn("❌ [错误处理] 捕获异常:", e.message);
 }
 
-// 状态码说明函数
-function getStatusDescription(statusCode) {
+// 状态码说明函数 - 修改为根据车架号判断下线状态
+function getStatusDescription(statusCode, vid) {
+    // 首先判断车架号是否以HXM开头来确定下线状态
+    const isOffline = vid && vid.startsWith("HXM");
+    
     switch (statusCode) {
         case 2520:
-            return "🔨 车辆生产中";
+            return isOffline ? "🎉 车辆已下线" : "🔨 车辆生产中";
         case 2605:
-            return "🎉 车辆已下线";
+            return "🎉 车辆已下线"; // 原本就是下线状态
         case 3000:
             return "🚚 车辆运输中";
         default:
+            // 对于其他状态码，也根据车架号判断
+            if (isOffline) {
+                return "🎉 车辆已下线";
+            }
             return "❓ 状态未知";
     }
 }
