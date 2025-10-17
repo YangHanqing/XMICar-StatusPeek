@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
     REQUEST_HEADERS: "xiaomi_order_request_headers",
     REQUEST_BODY: "xiaomi_order_request_body",
     REQUEST_METHOD: "xiaomi_order_request_method",
-    DYNAMIC_HEADERS: "xiaomi_dynamic_request_headers"
+    DYNAMIC_HEADERS: "xiaomi_dynamic_request_headers",
+    DYNAMIC_BODY: "xiaomi_dynamic_request_body"
 };
 
 // 防重复通知间隔（30秒）
@@ -27,6 +28,7 @@ try {
     // 检查是否是动态接口请求（无忧包可购买状态）
     if (requestUrl.includes('/mtop/carlife/product/dynamic')) {
         $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
+        $persistentStore.write(requestBody, STORAGE_KEYS.DYNAMIC_BODY);
         console.log("🔄 [动态接口] 检测到无忧包可购买状态接口，已保存");
         
         // 解析响应检查按钮状态

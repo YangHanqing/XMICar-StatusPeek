@@ -2,7 +2,8 @@
 
 const STORAGE_KEYS = {
     LAST_STATUS: "xiaomi_order_last_status",
-    DYNAMIC_HEADERS: "xiaomi_dynamic_request_headers"
+    DYNAMIC_HEADERS: "xiaomi_dynamic_request_headers",
+    DYNAMIC_BODY: "xiaomi_dynamic_request_body"
 };
 
 // 固定的接口URL
@@ -10,10 +11,12 @@ const DYNAMIC_API_URL = "https://carshop-api.retail.xiaomiev.com/mtop/carlife/pr
 
 // 读取动态接口信息
 const dynamicHeaders = $persistentStore.read(STORAGE_KEYS.DYNAMIC_HEADERS);
+const dynamicBody = $persistentStore.read(STORAGE_KEYS.DYNAMIC_BODY);
 
-if (!dynamicHeaders) {
+if (!dynamicHeaders || !dynamicBody) {
     console.log("❌ [初始化] 未找到无忧包接口信息，请先手动打开App访问一次");
     console.log("❌ [初始化] 动态Headers存在:", !!dynamicHeaders);
+    console.log("❌ [初始化] 动态Body存在:", !!dynamicBody);
     $done();
     return;
 }
@@ -27,6 +30,7 @@ try {
         url: DYNAMIC_API_URL,
         method: "POST",
         headers,
+        body: dynamicBody,
         timeout: 15000
     };
 
@@ -142,5 +146,6 @@ try {
     console.log("❌ [请求构造] 构造请求失败:", e.message);
     console.log("❌ [请求构造] 检查保存的Headers格式是否正确");
     console.log("❌ [请求构造] 保存的Headers内容:", dynamicHeaders);
+    console.log("❌ [请求构造] 保存的Body内容:", dynamicBody);
     $done();
 }
