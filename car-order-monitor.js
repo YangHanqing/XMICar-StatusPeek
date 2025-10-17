@@ -5,48 +5,45 @@ const STORAGE_KEYS = {
     REQUEST_HEADERS: "xiaomi_order_request_headers",
     REQUEST_BODY: "xiaomi_order_request_body",
     REQUEST_URL: "xiaomi_order_request_url",
-    REQUEST_METHOD: "xiaomi_order_request_method"
+    REQUEST_METHOD: "xiaomi_order_request_method",
+    DYNAMIC_HEADERS: "xiaomi_dynamic_request_headers",
+    DYNAMIC_URL: "xiaomi_dynamic_request_url"
 };
 
 // 防重复通知间隔（30秒）
 const NOTIFY_COOLDOWN = 30 * 1000;
 
-console.log("📱 [订单监控] 监控到App订单查询请求，开始处理...");
+console.log("📱 [订单监控] 监控到App请求，开始处理...");
 
 try {
     const currentTime = Date.now();
 
-    // 始终保存完整请求信息，供定时检查使用
+    // 保存请求信息
     const requestHeaders = JSON.stringify($request.headers || {});
     const requestBody = $request.body || "";
     const requestUrl = $request.url || "";
     const requestMethod = $request.method || "POST";
 
-    $persistentStore.write(requestHeaders, STORAGE_KEYS.REQUEST_HEADERS);
-    $persistentStore.write(requestBody, STORAGE_KEYS.REQUEST_BODY);
-    $persistentStore.write(requestUrl, STORAGE_KEYS.REQUEST_URL);
-    $persistentStore.write(requestMethod, STORAGE_KEYS.REQUEST_METHOD);
-
-    console.log("📥 [请求保存] 请求信息已保存");
     console.log(`📦 请求地址：${requestUrl}`);
-    console.log(`📄 请求体大小：${requestBody.length} 字节`);
 
-    // 解析响应
-    let body = $response.body;
-    let json = JSON.parse(body);
-    let statusInfo = json?.data?.orderDetailDto?.statusInfo;
-    
-    // 获取车架号
-    const vid = json?.data?.orderDetailDto?.buyCarInfo?.vid;
-    console.log(`🔍 [车架号] VID: ${vid || "未获取到"}`);
-
-    if (statusInfo) {
-        const statusCode = statusInfo.orderStatus;
-        const statusName = statusInfo.orderStatusName || "未知状态";
+    // 检查是否是动态接口请求（无忧包可购买状态）
+    if (requestUrl.includes('/mtop/carlife/product/dynamic')) {
+        $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
+        $persistentStore.write(requestUrl, STORAGE_KEYS.DYNAMIC_URL);
+        console.log("🔄 [动态接口] 检测到无忧包可购买状态接口，已保存");
         
-        // 根据车架号判断下线状态
-        let statusDesc = getStatusDescription(statusCode, vid);
-
+        // 解析响应检查按钮状态
+        let body = $response.body;
+        let json = JSON.parse(body);
+        let buttons = json?.data?.buttons || [];
+        
+        // 检查是否有"暂无购买权限"的按钮
+        const hasNoPermission = buttons.some(button => button.title === "暂无购买权限");
+        const isOffline = !hasNoPermission;
+        
+        console.log(`🔍 [按钮状态] ${JSON.stringify(buttons)}`);
+        console.log(`🎯 [下线判断] 车辆${isOffline ? "已下线" : "未下线"}`);
+        
         // 获取上次状态
         const lastStatusRaw = $persistentStore.read(STORAGE_KEYS.LAST_STATUS);
         let lastStatus = null;
@@ -55,8 +52,7 @@ try {
         if (lastStatusRaw) {
             try {
                 lastStatus = JSON.parse(lastStatusRaw);
-                // 比较状态码和车架号是否都发生变化
-                hasStatusChanged = lastStatus.statusCode !== statusCode || lastStatus.vid !== vid;
+                hasStatusChanged = lastStatus.isOffline !== isOffline;
             } catch {
                 console.warn("⚠️ [状态解析] 上次状态读取失败，可能是首次运行");
                 hasStatusChanged = true;
@@ -66,48 +62,41 @@ try {
             console.warn("⚠️ [状态解析] 未找到上次状态，视为首次记录");
         }
 
-        console.log("🔍 [状态检查] " +
-            `当前: ${statusCode} - ${statusName}，` +
-            `车架号: ${vid || "无"}，` +
-            `上次: ${lastStatus?.statusCode || "无记录"}，` +
-            `变化: ${hasStatusChanged ? "✅ 是" : "❌ 否"}`);
-
         // 保存当前状态
         const currentStatus = {
-            statusCode,
-            statusName,
-            statusDesc,
-            vid: vid || null,
+            isOffline,
+            buttons,
             updateTime: currentTime,
             saveTime: new Date().toISOString(),
             source: "app_request"
         };
         $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
-        console.warn("💾 [状态保存] 当前订单状态已保存");
+        console.warn("💾 [状态保存] 当前下线状态已保存");
 
         // 判断是否冷却中
         const lastNotifyTime = parseInt($persistentStore.read(STORAGE_KEYS.LAST_NOTIFY_TIME) || "0");
         const inCooldown = (currentTime - lastNotifyTime) < NOTIFY_COOLDOWN;
 
         if (!inCooldown) {
-            // 构建通知
-            let notificationTitle = "🚗 订单状态查询";
-            let notificationSubtitle = `${statusDesc}（${statusCode}）`;
-
+            let notificationTitle = "🚗 无忧包可购买状态";
+            let notificationSubtitle = isOffline ? "🎉 车辆已下线" : "⏳ 车辆未下线";
             let notificationBody = "";
-            if (hasStatusChanged && lastStatus) {
-                const lastDesc = getStatusDescription(lastStatus.statusCode, lastStatus.vid);
-                notificationBody += `📈 状态变化: ${lastDesc} → ${statusDesc}\n`;
+            
+            if (hasStatusChanged && lastStatus !== null) {
+                const lastDesc = lastStatus.isOffline ? "已下线" : "未下线";
+                const currentDesc = isOffline ? "已下线" : "未下线";
+                notificationBody += `📈 状态变化: ${lastDesc} → ${currentDesc}\n`;
             }
             
-            // 如果有车架号，显示车架号信息
-            if (vid) {
-                notificationBody += `🏷️ 车架号: ${vid}\n`;
-            }
-            
+            notificationBody += `🔘 按钮状态: ${buttons.map(b => b.title).join(', ')}\n`;
             notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
-            // 发送通知
+            // 🎉 特殊处理：车辆下线
+            if (isOffline) {
+                notificationTitle = "🎉🎉🎉 喜大普奔下线了 ！！！";
+                notificationSubtitle = "车辆已下线";
+            }
+
             $notification.post(notificationTitle, notificationSubtitle, notificationBody);
             $persistentStore.write(currentTime.toString(), STORAGE_KEYS.LAST_NOTIFY_TIME);
 
@@ -117,41 +106,21 @@ try {
             console.log(`⏳ [通知冷却] 冷却中，剩余 ${remainingTime} 秒`);
         }
 
-        // 日志总结
         console.log("📊 [状态详情]");
-        console.log(`     状态码: ${statusCode}`);
-        console.log(`     状态名: ${statusName}`);
-        console.log(`     描 述: ${statusDesc}`);
-        console.log(`     车架号: ${vid || "未获取到"}`);
-
+        console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
+        console.log(`     按钮信息: ${JSON.stringify(buttons)}`);
+        
     } else {
-        console.warn("⚠️ [状态缺失] 响应中未找到订单状态信息");
+        // 其他接口，仅保存基本信息
+        $persistentStore.write(requestHeaders, STORAGE_KEYS.REQUEST_HEADERS);
+        $persistentStore.write(requestBody, STORAGE_KEYS.REQUEST_BODY);
+        $persistentStore.write(requestUrl, STORAGE_KEYS.REQUEST_URL);
+        $persistentStore.write(requestMethod, STORAGE_KEYS.REQUEST_METHOD);
+        console.log("📥 [其他接口] 请求信息已保存");
     }
 
 } catch (e) {
     console.warn("❌ [错误处理] 捕获异常:", e.message);
 }
 
-// 状态码说明函数 - 修改为根据车架号判断下线状态
-function getStatusDescription(statusCode, vid) {
-    // 首先判断车架号是否以HXM开头来确定下线状态
-    const isOffline = vid && vid.startsWith("HXM");
-    
-    switch (statusCode) {
-        case 2520:
-            return isOffline ? "🎉 车辆已下线" : "🔨 车辆生产中";
-        case 2605:
-            return "🎉 车辆已下线"; // 原本就是下线状态
-        case 3000:
-            return "🚚 车辆运输中";
-        default:
-            // 对于其他状态码，也根据车架号判断
-            if (isOffline) {
-                return "🎉 车辆已下线";
-            }
-            return "❓ 状态未知";
-    }
-}
-
-// 返回原始响应，不影响App正常使用
 $done({});
