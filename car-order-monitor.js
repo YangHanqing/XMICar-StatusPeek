@@ -37,6 +37,13 @@ try {
         let buttons = json?.data?.buttons || [];
         
         // 检查是否有"暂无购买权限"的按钮
+        // 检查是否有有效按钮（如果没有按钮说明不是检查无忧包的请求）
+        if (!buttons || buttons.length === 0) {
+            console.log("⚠️ [按钮检查] 未检测到按钮数据，跳过处理");
+            $done({});
+            return;
+        }
+        
         const hasNoPermission = buttons.some(button => button.title === "暂无购买权限");
         const isOffline = !hasNoPermission;
         
