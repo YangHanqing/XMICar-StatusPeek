@@ -27,22 +27,22 @@ try {
 
     // 检查是否是动态接口请求（无忧包可购买状态）
     if (requestUrl.includes('/mtop/carlife/product/dynamic')) {
-        $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
-        $persistentStore.write(requestBody, STORAGE_KEYS.DYNAMIC_BODY);
-        console.log("🔄 [动态接口] 检测到无忧包可购买状态接口，已保存");
-        
         // 解析响应检查按钮状态
         let body = $response.body;
         let json = JSON.parse(body);
         let buttons = json?.data?.buttons || [];
         
-        // 检查是否有"暂无购买权限"的按钮
         // 检查是否有有效按钮（如果没有按钮说明不是检查无忧包的请求）
         if (!buttons || buttons.length === 0) {
             console.log("⚠️ [按钮检查] 未检测到按钮数据，跳过处理");
             $done({});
             return;
         }
+        
+        // 确认是无忧包接口后，保存请求信息
+        $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
+        $persistentStore.write(requestBody, STORAGE_KEYS.DYNAMIC_BODY);
+        console.log("🔄 [动态接口] 检测到无忧包可购买状态接口，已保存");
         
         const hasNoPermission = buttons.some(button => button.title === "暂无购买权限");
         const isOffline = !hasNoPermission;
