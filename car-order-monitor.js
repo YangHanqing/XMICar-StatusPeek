@@ -27,6 +27,25 @@ try {
 
     // 检查是否是动态接口请求（无忧包可购买状态）
     if (requestUrl.includes('/mtop/carlife/product/dynamic')) {
+        // 先检查请求 body 中是否包含无忧包的 goodsId
+        try {
+            const bodyData = JSON.parse(requestBody);
+            const hasWorryFreePackage = Array.isArray(bodyData) && 
+                bodyData.some(item => item && item.goodsId === 2230004385);
+            
+            if (!hasWorryFreePackage) {
+                console.log("⚠️ [商品过滤] 未检测到无忧包商品(goodsId: 2230004385)，跳过处理");
+                $done({});
+                return;
+            }
+            
+            console.log("✅ [商品验证] 检测到无忧包商品请求");
+        } catch (e) {
+            console.warn("⚠️ [Body解析] 请求体解析失败，跳过处理:", e.message);
+            $done({});
+            return;
+        }
+        
         // 解析响应检查按钮状态
         let body = $response.body;
         let json = JSON.parse(body);
