@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
 };
 
 // 固定的接口URL
-const DYNAMIC_API_URL = "https://carshop-api.retail.xiaomiev.com/mtop/carlife/product/dynamic";
+const DYNAMIC_API_URL = "https://carshop-api.retail.xiaomiev.com/mtop/carlife/product/info";
 
 // 读取动态接口信息
 const dynamicHeaders = $persistentStore.read(STORAGE_KEYS.DYNAMIC_HEADERS);
@@ -54,35 +54,26 @@ try {
             console.log(`📊 [定时检查] 完整响应: ${JSON.stringify(json)}`);
             
             // 验证响应数据结构
-            if (!json || !json.data) {
-                console.log("❌ [数据验证] 响应数据结构异常，缺少data字段");
+            if (!json || !json.data || !json.data.product) {
+                console.log("❌ [数据验证] 响应数据结构异常，缺少product字段");
                 console.log(`❌ [数据验证] 响应内容: ${data}`);
                 $done();
                 return;
             }
             
-            if (!json.data.buttons || !Array.isArray(json.data.buttons)) {
-                console.log("❌ [数据验证] 响应数据中缺少buttons字段或buttons不是数组");
-                console.log(`❌ [数据验证] data字段内容: ${JSON.stringify(json.data)}`);
-                $done();
-                return;
-            }
-            
-            const buttons = json.data.buttons;
-            console.log(`🔍 [定时检查] 按钮状态验证通过，按钮数量: ${buttons.length}`);
-            console.log(`🔍 [定时检查] 按钮详情: ${JSON.stringify(buttons)}`);
+            const notice = json.data.product.notice || "";
+            console.log(`🔍 [定时检查] Notice字段: ${notice}`);
 
-            // 检查是否有"暂无购买权限"的按钮
-            const hasNoPermission = buttons.some(button => button.title === "暂无购买权限");
-            const isOffline = !hasNoPermission;
+            // 判断下线状态：notice 为 "暂不符合购买条件" 时未下线，其他情况为已下线
+            const isOffline = notice !== "暂不符合购买条件";
             
-            console.log(`🎯 [状态判断] 是否有"暂无购买权限"按钮: ${hasNoPermission}`);
+            console.log(`🎯 [状态判断] Notice内容: ${notice}`);
             console.log(`🎯 [状态判断] 车辆下线状态: ${isOffline ? "已下线" : "未下线"}`);
 
             // 保存当前状态
             const currentStatus = {
                 isOffline,
-                buttons,
+                notice,
                 updateTime: Date.now(),
                 saveTime: new Date().toISOString(),
                 source: "scheduled_check"
@@ -113,14 +104,14 @@ try {
                 if (isOffline) {
                     const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
                     let message = `车辆已下线`;
-                    message += `\n🔘 按钮状态: ${buttons.map(b => b.title).join(', ')}`;
+                    message += `\n🔘 Notice: ${notice}`;
                     message += `\n⏰ ${now}`;
                     $notification.post(title, "", message);
                     console.log("✅ [通知发送] 已发送车辆下线通知");
                 } else {
-                    const title = "🚗 无忧包可购买状态查询";
+                    const title = "🚗 无忧包购买状态查询";
                     let message = `车辆未下线`;
-                    message += `\n🔘 按钮状态: ${buttons.map(b => b.title).join(', ')}`;
+                    message += `\n🔘 Notice: ${notice}`;
                     message += `\n⏰ ${now}`;
                     $notification.post(title, "", message);
                     console.log("✅ [通知发送] 状态更新通知已发送");
@@ -131,7 +122,7 @@ try {
 
             console.log("📊 [定时检查详情]");
             console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
-            console.log(`     按钮信息: ${JSON.stringify(buttons)}`);
+            console.log(`     Notice信息: ${notice}`);
 
         } catch (e) {
             console.log("❌ [响应解析] 解析失败:", e.message);

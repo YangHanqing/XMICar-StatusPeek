@@ -25,16 +25,16 @@ try {
 
     console.log(`📦 请求地址：${requestUrl}`);
 
-    // 检查是否是动态接口请求（无忧包可购买状态）
-    if (requestUrl.includes('/mtop/carlife/product/dynamic')) {
-        // 先检查请求 body 中是否包含无忧包的 goodsId
+    // 检查是否是产品信息接口请求（无忧包购买状态）
+    if (requestUrl.includes('/mtop/carlife/product/info')) {
+        // 先检查请求 body 中是否包含无忧包的 productId
         try {
             const bodyData = JSON.parse(requestBody);
             const hasWorryFreePackage = Array.isArray(bodyData) && 
-                bodyData.some(item => item && item.goodsId === 2230004385);
+                bodyData.some(item => item && item.productId === "21452");
             
             if (!hasWorryFreePackage) {
-                console.log("⚠️ [商品过滤] 未检测到无忧包商品(goodsId: 2230004385)，跳过处理");
+                console.log("⚠️ [商品过滤] 未检测到无忧包商品(productId: 21452)，跳过处理");
                 $done({});
                 return;
             }
@@ -46,27 +46,20 @@ try {
             return;
         }
         
-        // 解析响应检查按钮状态
+        // 解析响应检查 notice 字段
         let body = $response.body;
         let json = JSON.parse(body);
-        let buttons = json?.data?.buttons || [];
-        
-        // 检查是否有有效按钮（如果没有按钮说明不是检查无忧包的请求）
-        if (!buttons || buttons.length === 0) {
-            console.log("⚠️ [按钮检查] 未检测到按钮数据，跳过处理");
-            $done({});
-            return;
-        }
+        let notice = json?.data?.product?.notice || "";
         
         // 确认是无忧包接口后，保存请求信息
         $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
         $persistentStore.write(requestBody, STORAGE_KEYS.DYNAMIC_BODY);
-        console.log("🔄 [动态接口] 检测到无忧包可购买状态接口，已保存");
+        console.log("🔄 [动态接口] 检测到无忧包购买状态接口，已保存");
         
-        const hasNoPermission = buttons.some(button => button.title === "暂无购买权限");
-        const isOffline = !hasNoPermission;
+        // 判断下线状态：notice 为 "暂不符合购买条件" 时未下线，其他情况为已下线
+        const isOffline = notice !== "暂不符合购买条件";
         
-        console.log(`🔍 [按钮状态] ${JSON.stringify(buttons)}`);
+        console.log(`🔍 [Notice状态] ${notice}`);
         console.log(`🎯 [下线判断] 车辆${isOffline ? "已下线" : "未下线"}`);
         
         // 获取上次状态
@@ -90,7 +83,7 @@ try {
         // 保存当前状态
         const currentStatus = {
             isOffline,
-            buttons,
+            notice,
             updateTime: currentTime,
             saveTime: new Date().toISOString(),
             source: "app_request"
@@ -103,7 +96,7 @@ try {
         const inCooldown = (currentTime - lastNotifyTime) < NOTIFY_COOLDOWN;
 
         if (!inCooldown) {
-            let notificationTitle = "🚗 无忧包可购买状态";
+            let notificationTitle = "🚗 无忧包购买状态";
             let notificationSubtitle = isOffline ? "🎉 车辆已下线" : "⏳ 车辆未下线";
             let notificationBody = "";
             
@@ -113,7 +106,7 @@ try {
                 notificationBody += `📈 状态变化: ${lastDesc} → ${currentDesc}\n`;
             }
             
-            notificationBody += `🔘 按钮状态: ${buttons.map(b => b.title).join(', ')}\n`;
+            notificationBody += `🔘 Notice: ${notice}\n`;
             notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
             // 🎉 特殊处理：车辆下线
@@ -133,7 +126,7 @@ try {
 
         console.log("📊 [状态详情]");
         console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
-        console.log(`     按钮信息: ${JSON.stringify(buttons)}`);
+        console.log(`     Notice信息: ${notice}`);
         
     } else {
         // 其他接口，仅保存基本信息
