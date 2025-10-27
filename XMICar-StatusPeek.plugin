@@ -8,9 +8,9 @@
 enableAutoReplay = switch,false,tag=每隔10分钟自动获取最新状态,desc=是否开启定时自动检查无忧包可购买状态功能
 
 [Script]
-http-response ^https:\/\/carshop-api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/info$ script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/car-order-monitor.js, requires-body=true, tag=小米汽车下线状态通知
+http-response ^https:\/\/carshop-api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/info$ script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/car-worry-free-monitor.js, requires-body=true, tag=小米汽车无忧包状态监控
 
-http-response ^https:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order$ script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/car-order-monitor.js, requires-body=true, tag=小米汽车订单数据监控
+http-response ^https:\/\/api\.retail\.xiaomiev\.com\/mtop\/carlife\/product\/order$ script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/car-order-data-monitor.js, requires-body=true, tag=小米汽车订单数据监控
 
 # 定时检查脚本
 cron "*/10 * * * *" script-path=https://raw.githubusercontent.com/YangHanqing/XMICar-StatusPeek/refs/heads/main/xiaomi-order-replay.js, tag=无忧包定时检查, enable={enableAutoReplay}
