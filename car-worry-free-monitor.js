@@ -25,14 +25,14 @@ try {
 
     console.log(`📦 请求地址：${requestUrl}`);
 
-    // 先检查请求 body 中是否包含无忧包的 productId
+    // 先检查请求 body 中是否包含无忧包的 goodsId
     try {
         const bodyData = JSON.parse(requestBody);
         const hasWorryFreePackage = Array.isArray(bodyData) && 
-            bodyData.some(item => item && item.productId === "21452");
+            bodyData.some(item => item && item.goodsId === 2230004385);
         
         if (!hasWorryFreePackage) {
-            console.log("⚠️ [商品过滤] 未检测到无忧包商品(productId: 21452)，跳过处理");
+            console.log("⚠️ [商品过滤] 未检测到无忧包商品(goodsId: 2230004385)，跳过处理");
             $done({});
             return;
         }
@@ -44,10 +44,20 @@ try {
         return;
     }
     
-    // 解析响应检查 notice 字段
+    // 解析响应检查 servicePackagePurchaseInfo.code
     let body = $response.body;
     let json = JSON.parse(body);
-    let notice = json?.data?.product?.notice || "";
+    
+    // 检查 servicePackagePurchaseInfo 是否存在
+    if (!json?.data?.servicePackagePurchaseInfo) {
+        console.error("❌ [数据缺失] 响应中未找到 servicePackagePurchaseInfo 字段");
+        $notification.post("⚠️ 数据异常", "接口响应缺少关键字段", "请检查接口是否正常");
+        $done({});
+        return;
+    }
+    
+    const purchaseCode = json.data.servicePackagePurchaseInfo.code;
+    const notice = json?.data?.notice || "";
     
     // 确认是无忧包接口后，保存请求信息
     $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
@@ -55,9 +65,10 @@ try {
     $persistentStore.write(requestMethod, STORAGE_KEYS.REQUEST_METHOD);
     console.log("🔄 [动态接口] 检测到无忧包购买状态接口，已保存");
     
-    // 判断下线状态：notice 为 "暂不符合购买条件" 时未下线，其他情况为已下线
-    const isOffline = notice !== "暂不符合购买条件";
+    // 判断下线状态：code 为 4 时未下线，其他值为已下线
+    const isOffline = purchaseCode !== 4;
     
+    console.log(`🔍 [Purchase Code] ${purchaseCode}`);
     console.log(`🔍 [Notice状态] ${notice}`);
     console.log(`🎯 [下线判断] 车辆${isOffline ? "已下线" : "未下线"}`);
     
@@ -82,6 +93,7 @@ try {
     // 保存当前状态
     const currentStatus = {
         isOffline,
+        purchaseCode,
         notice,
         updateTime: currentTime,
         saveTime: new Date().toISOString(),
@@ -105,7 +117,8 @@ try {
             notificationBody += `📈 状态变化: ${lastDesc} → ${currentDesc}\n`;
         }
         
-        notificationBody += `🔘 Notice: ${notice}\n`;
+        notificationBody += `🔘 Purchase Code: ${purchaseCode}\n`;
+        notificationBody += `📝 Notice: ${notice}\n`;
         notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
         // 🎉 特殊处理：车辆下线
@@ -125,6 +138,7 @@ try {
 
     console.log("📊 [状态详情]");
     console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
+    console.log(`     Purchase Code: ${purchaseCode}`);
     console.log(`     Notice信息: ${notice}`);
 
 } catch (e) {
