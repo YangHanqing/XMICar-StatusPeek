@@ -7,7 +7,7 @@ const STORAGE_KEYS = {
 };
 
 // 固定的接口URL
-const DYNAMIC_API_URL = "https://carshop-api.retail.xiaomiev.com/mtop/carlife/product/info";
+const DYNAMIC_API_URL = "https://carshop-api.retail.xiaomiev.com/mtop/carlife/product/dynamic";
 
 // 读取动态接口信息
 const dynamicHeaders = $persistentStore.read(STORAGE_KEYS.DYNAMIC_HEADERS);
@@ -54,75 +54,84 @@ try {
             console.log(`📊 [定时检查] 完整响应: ${JSON.stringify(json)}`);
             
             // 验证响应数据结构
-            if (!json || !json.data || !json.data.product) {
-                console.log("❌ [数据验证] 响应数据结构异常，缺少product字段");
+            if (!json || !json.data || !json.data.servicePackagePurchaseInfo) {
+                console.log("❌ [数据验证] 响应数据结构异常，缺少 servicePackagePurchaseInfo 字段");
                 console.log(`❌ [数据验证] 响应内容: ${data}`);
+                $notification.post("⚠️ 数据异常", "接口响应缺少关键字段", "请检查接口是否正常");
                 $done();
                 return;
             }
             
-            const notice = json.data.product.notice || "";
-            console.log(`🔍 [定时检查] Notice字段: ${notice}`);
+            const purchaseCode = json.data.servicePackagePurchaseInfo.code;
+            console.log(`🔍 [定时检查] Purchase Code: ${purchaseCode}`);
 
-            // 判断下线状态：notice 为 "暂不符合购买条件" 时未下线，其他情况为已下线
-            const isOffline = notice !== "暂不符合购买条件";
+            // 判断下线状态：code 为 4 时未下线，其他值为已下线
+            const isOffline = purchaseCode !== 4;
             
-            console.log(`🎯 [状态判断] Notice内容: ${notice}`);
+            console.log(`🎯 [状态判断] Purchase Code: ${purchaseCode}`);
             console.log(`🎯 [状态判断] 车辆下线状态: ${isOffline ? "已下线" : "未下线"}`);
 
             // 保存当前状态
             const currentStatus = {
                 isOffline,
-                notice,
+                purchaseCode,
                 updateTime: Date.now(),
                 saveTime: new Date().toISOString(),
                 source: "scheduled_check"
             };
             $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
 
-            // 读取上次状态，避免重复通知
+            // 读取上次状态，判断是否需要通知
             const lastStatusRaw = $persistentStore.read(STORAGE_KEYS.LAST_STATUS);
-            let shouldNotify = true;
+            let shouldNotify = false;
+            let statusChanged = false;
             
             if (lastStatusRaw) {
                 try {
                     const lastStatus = JSON.parse(lastStatusRaw);
-                    if (lastStatus.isOffline === isOffline && lastStatus.source === "scheduled_check") {
-                        shouldNotify = false;
-                        console.log(`📋 [通知过滤] 状态未变化，跳过通知 (${isOffline ? "已下线" : "未下线"})`);
+                    statusChanged = lastStatus.isOffline !== isOffline;
+                    
+                    if (statusChanged) {
+                        shouldNotify = true;
+                        console.log(`📋 [状态变化] 检测到状态变化，准备发送通知`);
+                        console.log(`📋 [状态变化] ${lastStatus.isOffline ? "已下线" : "未下线"} → ${isOffline ? "已下线" : "未下线"}`);
                     } else {
-                        console.log(`📋 [通知检查] 状态有变化或来源不同，发送通知`);
-                        console.log(`📋 [通知检查] 上次状态: ${lastStatus.isOffline ? "已下线" : "未下线"} (${lastStatus.source})`);
-                        console.log(`📋 [通知检查] 当前状态: ${isOffline ? "已下线" : "未下线"} (scheduled_check)`);
+                        console.log(`📋 [状态未变] 状态无变化 (${isOffline ? "已下线" : "未下线"})，跳过通知`);
                     }
                 } catch (e) {
-                    console.log(`⚠️ [状态解析] 上次状态解析失败: ${e.message}`);
+                    console.log(`⚠️ [状态解析] 上次状态解析失败，视为首次检查: ${e.message}`);
+                    shouldNotify = true;
                 }
+            } else {
+                // 首次检查
+                console.log(`📋 [首次检查] 未找到历史状态，视为首次检查`);
+                shouldNotify = true;
             }
             
+            // 只在状态变化或首次检查时发送通知
             if (shouldNotify) {
                 if (isOffline) {
                     const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
                     let message = `车辆已下线`;
-                    message += `\n🔘 Notice: ${notice}`;
+                    message += `\n🔘 Purchase Code: ${purchaseCode}`;
                     message += `\n⏰ ${now}`;
                     $notification.post(title, "", message);
                     console.log("✅ [通知发送] 已发送车辆下线通知");
                 } else {
-                    const title = "🚗 无忧包购买状态查询";
+                    const title = "🚗 无忧包购买状态";
                     let message = `车辆未下线`;
-                    message += `\n🔘 Notice: ${notice}`;
+                    message += `\n🔘 Purchase Code: ${purchaseCode}`;
                     message += `\n⏰ ${now}`;
                     $notification.post(title, "", message);
-                    console.log("✅ [通知发送] 状态更新通知已发送");
+                    console.log("✅ [通知发送] 已发送状态通知");
                 }
             } else {
-                console.log("🔕 [通知跳过] 状态无变化，跳过通知");
+                console.log("🔕 [通知跳过] 状态无变化，不发送通知");
             }
 
             console.log("📊 [定时检查详情]");
             console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
-            console.log(`     Notice信息: ${notice}`);
+            console.log(`     Purchase Code: ${purchaseCode}`);
 
         } catch (e) {
             console.log("❌ [响应解析] 解析失败:", e.message);

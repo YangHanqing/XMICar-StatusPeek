@@ -57,7 +57,6 @@ try {
     }
     
     const purchaseCode = json.data.servicePackagePurchaseInfo.code;
-    const notice = json?.data?.notice || "";
     
     // 确认是无忧包接口后，保存请求信息
     $persistentStore.write(requestHeaders, STORAGE_KEYS.DYNAMIC_HEADERS);
@@ -69,7 +68,6 @@ try {
     const isOffline = purchaseCode !== 4;
     
     console.log(`🔍 [Purchase Code] ${purchaseCode}`);
-    console.log(`🔍 [Notice状态] ${notice}`);
     console.log(`🎯 [下线判断] 车辆${isOffline ? "已下线" : "未下线"}`);
     
     // 获取上次状态
@@ -94,7 +92,6 @@ try {
     const currentStatus = {
         isOffline,
         purchaseCode,
-        notice,
         updateTime: currentTime,
         saveTime: new Date().toISOString(),
         source: "app_request"
@@ -118,7 +115,6 @@ try {
         }
         
         notificationBody += `🔘 Purchase Code: ${purchaseCode}\n`;
-        notificationBody += `📝 Notice: ${notice}\n`;
         notificationBody += `⏰ ${new Date().toLocaleString('zh-CN')}`;
 
         // 🎉 特殊处理：车辆下线
@@ -139,7 +135,6 @@ try {
     console.log("📊 [状态详情]");
     console.log(`     下线状态: ${isOffline ? "✅ 已下线" : "❌ 未下线"}`);
     console.log(`     Purchase Code: ${purchaseCode}`);
-    console.log(`     Notice信息: ${notice}`);
 
 } catch (e) {
     console.warn("❌ [错误处理] 捕获异常:", e.message);
