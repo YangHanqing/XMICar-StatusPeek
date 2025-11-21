@@ -40,6 +40,7 @@ try {
         if (error) {
             console.log("❌ [请求失败] 网络请求出错:", error);
             console.log("❌ [请求失败] 请检查网络连接或接口URL是否有效");
+            $notification.post("❌ 请求失败", "网络请求出错", `错误信息: ${error}`);
             $done();
             return;
         }
@@ -51,13 +52,13 @@ try {
             const json = JSON.parse(data);
             const now = new Date().toLocaleString('zh-CN');
             
-            console.log(`📊 [定时检查] 完整响应: ${JSON.stringify(json)}`);
+            console.log(`📊 [完整响应] ${JSON.stringify(json, null, 2)}`);
             
             // 验证响应数据结构
             if (!json || !json.data || !json.data.servicePackagePurchaseInfo) {
                 console.log("❌ [数据验证] 响应数据结构异常，缺少 servicePackagePurchaseInfo 字段");
                 console.log(`❌ [数据验证] 响应内容: ${data}`);
-                $notification.post("⚠️ 数据异常", "接口响应缺少关键字段", "请检查接口是否正常");
+                $notification.post("⚠️ 数据异常", "接口响应缺少关键字段", `时间: ${now}\n请检查接口是否正常`);
                 $done();
                 return;
             }
@@ -71,62 +72,26 @@ try {
             console.log(`🎯 [状态判断] Purchase Code: ${purchaseCode}`);
             console.log(`🎯 [状态判断] 车辆下线状态: ${isOffline ? "已下线" : "未下线"}`);
 
-            // 保存当前状态
-            const currentStatus = {
+            // 记录本次检查结果
+            const checkRecord = {
                 isOffline,
                 purchaseCode,
-                updateTime: Date.now(),
-                saveTime: new Date().toISOString(),
+                checkTime: Date.now(),
+                checkTimeStr: new Date().toISOString(),
                 source: "scheduled_check"
             };
-            $persistentStore.write(JSON.stringify(currentStatus), STORAGE_KEYS.LAST_STATUS);
+            $persistentStore.write(JSON.stringify(checkRecord), STORAGE_KEYS.LAST_STATUS);
 
-            // 读取上次状态，判断是否需要通知
-            const lastStatusRaw = $persistentStore.read(STORAGE_KEYS.LAST_STATUS);
-            let shouldNotify = false;
-            let statusChanged = false;
-            
-            if (lastStatusRaw) {
-                try {
-                    const lastStatus = JSON.parse(lastStatusRaw);
-                    statusChanged = lastStatus.isOffline !== isOffline;
-                    
-                    if (statusChanged) {
-                        shouldNotify = true;
-                        console.log(`📋 [状态变化] 检测到状态变化，准备发送通知`);
-                        console.log(`📋 [状态变化] ${lastStatus.isOffline ? "已下线" : "未下线"} → ${isOffline ? "已下线" : "未下线"}`);
-                    } else {
-                        console.log(`📋 [状态未变] 状态无变化 (${isOffline ? "已下线" : "未下线"})，跳过通知`);
-                    }
-                } catch (e) {
-                    console.log(`⚠️ [状态解析] 上次状态解析失败，视为首次检查: ${e.message}`);
-                    shouldNotify = true;
-                }
+            // 只要检测到已下线就发送通知
+            if (isOffline) {
+                const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
+                let message = `车辆已下线`;
+                message += `\n🔘 Purchase Code: ${purchaseCode}`;
+                message += `\n⏰ ${now}`;
+                $notification.post(title, "", message);
+                console.log("✅ [通知发送] 检测到车辆已下线，发送通知");
             } else {
-                // 首次检查
-                console.log(`📋 [首次检查] 未找到历史状态，视为首次检查`);
-                shouldNotify = true;
-            }
-            
-            // 只在状态变化或首次检查时发送通知
-            if (shouldNotify) {
-                if (isOffline) {
-                    const title = "🎉🎉🎉 喜大普奔下线了 ！！！";
-                    let message = `车辆已下线`;
-                    message += `\n🔘 Purchase Code: ${purchaseCode}`;
-                    message += `\n⏰ ${now}`;
-                    $notification.post(title, "", message);
-                    console.log("✅ [通知发送] 已发送车辆下线通知");
-                } else {
-                    const title = "🚗 无忧包购买状态";
-                    let message = `车辆未下线`;
-                    message += `\n🔘 Purchase Code: ${purchaseCode}`;
-                    message += `\n⏰ ${now}`;
-                    $notification.post(title, "", message);
-                    console.log("✅ [通知发送] 已发送状态通知");
-                }
-            } else {
-                console.log("🔕 [通知跳过] 状态无变化，不发送通知");
+                console.log("📋 [状态检查] 车辆未下线，不发送通知");
             }
 
             console.log("📊 [定时检查详情]");
@@ -137,6 +102,7 @@ try {
             console.log("❌ [响应解析] 解析失败:", e.message);
             console.log("❌ [响应解析] 原始响应内容:", data);
             console.log("❌ [响应解析] 请检查接口URL是否正确或响应格式是否变化");
+            $notification.post("❌ 响应解析失败", "无法解析接口返回数据", `错误: ${e.message}`);
         }
 
         $done();
