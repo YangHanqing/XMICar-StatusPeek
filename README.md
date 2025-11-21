@@ -4,18 +4,15 @@
 
 ## 🔍 判断逻辑
 
-### 根据无忧包 Purchase Code 判断（当前方法 待验证）
+### 根据无忧包 Purchase Code 判断
+
+> 截止 2025-11-21 当前方法已被作者实际验证有效。后续不会再更新判断逻辑，如有变化请自行适配 ~
 
 - 监听接口：`/mtop/carlife/product/dynamic`
 - 识别无忧包：`goodsId: 2230004385`
 - 判断逻辑：
   - `servicePackagePurchaseInfo.code === 4` → 车辆未下线
   - `servicePackagePurchaseInfo.code !== 4` → 车辆已下线
-
-### 根据无忧包可购买状态判断（2025-11-18 已失效）
-
-- 获取无忧包状态
-- `暂无购买权限`，则判断为车辆未下线
 
 ### 根据车架号判断（2025-08-12 已失效）
 - 获取车架号（VID）信息
